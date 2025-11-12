@@ -1,0 +1,19 @@
+package com.example.service;
+
+import com.example.dto.TaskDto;
+import com.example.entity.Task;
+
+import java.util.List;
+
+public interface TaskService {
+    Task createTask(TaskDto taskDto, Long userId);
+    Task getTaskById(Long id, Long userId);
+    Task getTaskByIdForAdmin(Long id); // Admin can access any task
+    List<Task> getAllTasksByUserId(Long userId);
+    Task updateTask(Long id, TaskDto taskDto, Long userId);
+    Task updateTaskForAdmin(Long id, TaskDto taskDto); // Admin can update any task
+    void deleteTask(Long id, Long userId);
+    void deleteTaskForAdmin(Long id); // Admin can delete any task
+    List<Task> getAllTasks(); // Admin only
+}
+

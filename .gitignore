@@ -1,0 +1,20 @@
+# Node modules (React)
+primetrade_Assignment_Frontend/node_modules/
+
+# Maven build (Spring Boot)
+primetrade_Assignment_Backend/target/
+
+# IDE & workspace files
+*.iml
+*.idea/
+*.vscode/
+*.classpath
+*.project
+*.settings/
+
+# Log files
+*.log
+
+# Environment files
+.env
+.DS_Store

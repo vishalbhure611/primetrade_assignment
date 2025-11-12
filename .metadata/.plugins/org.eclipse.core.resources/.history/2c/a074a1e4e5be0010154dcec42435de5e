@@ -1,0 +1,62 @@
+package com.example.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import com.example.dao.UserRepository;
+import com.example.dto.LoginDto;
+import com.example.dto.UserDto;
+import com.example.entity.User;
+import com.example.util.JwtUtil;
+
+public class UserServiceImpl implements UserService {
+ 
+	@Autowired
+	private UserRepository userRepository;
+	
+	@Autowired
+	private PasswordEncoder passwordEncoder;
+	
+	private JwtUtil jwtUtil;
+	
+	
+	
+	@Override
+	public User register(UserDto userDto) {
+		// TODO Auto-generated method stub
+		
+		if(userRepository.findByEmail(userDto.getEmail()).isPresent()) {
+			throw new RuntimeException("Email already registered");
+		}
+		
+		User user = new User();
+		
+		user.setName(userDto.getName());
+		user.setEmail(userDto.getEmail());
+		user.setPassword(passwordEncoder.encode(userDto.getPassword()));
+		user.setRole(userDto.getRole());
+		
+		return userRepository.save(user);
+	}
+
+	@Override
+	public String login(LoginDto loginDto) {
+		// TODO Auto-generated method stub
+		User user = userRepository.findByEmail(loginDto.getEmail()).orElseThrow(() -> new RuntimeException("Invalid Email or Password, please Enter Correct details.."));
+		
+		if(!passwordEncoder.matches(loginDto.getPassword(), user.getPassword())) {
+			throw new RuntimeException("Incorrect password");
+		}
+		
+		UserDetails userDetails = org.springframework.security.core.userdetails.User
+                .withUsername(user.getEmail())
+                .password(user.getPassword())
+                .roles(user.getRole().name())
+                .build();
+		 String jwtToken =  jwtUtil.generateToken(userDetails);
+
+        return jwtToken;
+	}
+
+}

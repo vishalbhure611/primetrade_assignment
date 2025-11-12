@@ -1,0 +1,140 @@
+package com.example.controller;
+
+import com.example.dao.UserRepository;
+import com.example.dto.TaskDto;
+import com.example.entity.Task;
+import com.example.entity.User;
+import com.example.service.TaskService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/tasks")
+@CrossOrigin(origins = "*")
+@Tag(name = "Tasks", description = "Task management APIs - CRUD operations for tasks")
+@SecurityRequirement(name = "Bearer Authentication")
+public class TaskController {
+
+    @Autowired
+    private TaskService taskService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // Helper method to check if user is admin
+    private boolean isAdmin(Authentication authentication) {
+        return authentication.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
+    // Create a new task
+    @Operation(summary = "Create a new task", description = "Creates a new task for the authenticated user. Requires authentication.")
+    @PostMapping
+    public ResponseEntity<?> createTask(@Valid @RequestBody TaskDto taskDto, Authentication authentication) {
+        Long userId = getUserIdFromAuth(authentication);
+        Task task = taskService.createTask(taskDto, userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "message", "Task created successfully",
+                "task", task
+        ));
+    }
+
+    // Get all tasks for the current user
+    @Operation(summary = "Get all tasks", description = "Retrieves all tasks. Regular users see only their own tasks, admins see all tasks. Requires authentication.")
+    @GetMapping
+    public ResponseEntity<?> getAllTasks(Authentication authentication) {
+        if (isAdmin(authentication)) {
+            // Admin can see all tasks
+            List<Task> tasks = taskService.getAllTasks();
+            return ResponseEntity.ok(Map.of(
+                    "message", "All tasks retrieved successfully",
+                    "tasks", tasks,
+                    "count", tasks.size()
+            ));
+        } else {
+            Long userId = getUserIdFromAuth(authentication);
+            List<Task> tasks = taskService.getAllTasksByUserId(userId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Tasks retrieved successfully",
+                    "tasks", tasks,
+                    "count", tasks.size()
+            ));
+        }
+    }
+
+    // Get a specific task by ID
+    @Operation(summary = "Get task by ID", description = "Retrieves a specific task by ID. Regular users can only access their own tasks, admins can access any task. Requires authentication.")
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getTaskById(@PathVariable Long id, Authentication authentication) {
+        Task task;
+        if (isAdmin(authentication)) {
+            // Admin can access any task
+            task = taskService.getTaskByIdForAdmin(id);
+        } else {
+            // Regular users can only access their own tasks
+            Long userId = getUserIdFromAuth(authentication);
+            task = taskService.getTaskById(id, userId);
+        }
+        return ResponseEntity.ok(Map.of(
+                "message", "Task retrieved successfully",
+                "task", task
+        ));
+    }
+
+    // Update a task
+    @Operation(summary = "Update a task", description = "Updates an existing task. Regular users can only update their own tasks, admins can update any task. Requires authentication.")
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateTask(@PathVariable Long id, 
+                                       @Valid @RequestBody TaskDto taskDto, 
+                                       Authentication authentication) {
+        Task task;
+        if (isAdmin(authentication)) {
+            // Admin can update any task
+            task = taskService.updateTaskForAdmin(id, taskDto);
+        } else {
+            // Regular users can only update their own tasks
+            Long userId = getUserIdFromAuth(authentication);
+            task = taskService.updateTask(id, taskDto, userId);
+        }
+        return ResponseEntity.ok(Map.of(
+                "message", "Task updated successfully",
+                "task", task
+        ));
+    }
+
+    // Delete a task
+    @Operation(summary = "Delete a task", description = "Deletes a task by ID. Regular users can only delete their own tasks, admins can delete any task. Requires authentication.")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteTask(@PathVariable Long id, Authentication authentication) {
+        if (isAdmin(authentication)) {
+            // Admin can delete any task
+            taskService.deleteTaskForAdmin(id);
+        } else {
+            // Regular users can only delete their own tasks
+            Long userId = getUserIdFromAuth(authentication);
+            taskService.deleteTask(id, userId);
+        }
+        return ResponseEntity.ok(Map.of(
+                "message", "Task deleted successfully"
+        ));
+    }
+
+    // Helper method to get user ID from authentication
+    private Long getUserIdFromAuth(Authentication authentication) {
+        String email = authentication.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return user.getId();
+    }
+}
+
